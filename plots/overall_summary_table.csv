@@ -1,0 +1,8 @@
+metric,value
+Official ensemble GLORYS RMSE (C),0.8746
+Climatology RMSE (C),1.0926
+Overall GLORYS skill score,0.1995
+Official ensemble ARGO RMSE (C),1.1859
+Legacy single-model ARGO RMSE (C),1.1906
+GLORYS vs ARGO RMSE (C),0.6476
+Ensemble gain on ARGO (C),0.0047

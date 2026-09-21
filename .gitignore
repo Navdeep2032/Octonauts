@@ -1,0 +1,79 @@
+# Python caches and build artifacts
+__pycache__/
+*.py[cod]
+*$py.class
+*.so
+.Python
+build/
+dist/
+*.egg-info/
+.eggs/
+.pytest_cache/
+.mypy_cache/
+.ruff_cache/
+.coverage
+htmlcov/
+
+# Virtual environments and local Python tooling
+.venv/
+venv/
+env/
+ENV/
+.conda/
+.python-version
+
+# Jupyter and notebook checkpoints
+.ipynb_checkpoints/
+
+# Local environment files and secrets
+.env
+.env.*
+!.env.example
+*.pem
+*.key
+credentials.json
+secrets.json
+
+# Editors and operating-system files
+.vscode/
+.idea/
+.DS_Store
+Thumbs.db
+desktop.ini
+
+# Logs and temporary files
+*.log
+*.tmp
+*.temp
+*_log.txt
+logs/
+tmp/
+temp/
+
+# Downloaded and generated scientific data.
+# Keep the documentation files in data/ and its subdirectories tracked.
+data/**/*.nc
+data/**/*.nc4
+data/**/*.cdf
+data/**/*.grib
+data/**/*.grib2
+data/**/*.grb
+data/**/*.zarr/
+data/**/*.h5
+data/**/*.hdf5
+data/**/*.parquet
+data/**/_tmp_raw/
+data/**/*.csv
+
+# Preserve empty data directory structure when needed.
+!data/README.md
+!data/**/README.md
+!data/**/.gitkeep
+
+OceanEmbed_Model_Architecture_Deep_Dive.md
+OceanEmbed_Project_Handoff.md
+MODEL_ARCHITECTURE.md
+NON_TECHNICAL_README.md
+PROJECT_HANDOFF.md
+PROJECT_STATUS.md
+TECHNICAL_README.md
