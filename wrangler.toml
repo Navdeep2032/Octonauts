@@ -11,4 +11,5 @@ not_found_handling = "single-page-application"
 binding = "DB"
 database_name = "oceanembed-db"
 database_id = "dbaa5263-8f93-4dfd-987d-94c520d532ca"
+migrations_dir = "migrations"
 remote = true

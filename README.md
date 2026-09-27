@@ -18,15 +18,23 @@ The browser calls a Cloudflare Worker proxy with a native D1 binding; account cr
    npm install
    ```
 
-2. Enable a `workers.dev` subdomain for the Cloudflare account if it does not have one yet. Wrangler requires this to open a remote-binding preview.
+2. Apply the D1 query index once before using the remote database:
 
-3. In one terminal, run the Worker. Its D1 binding is configured to read the remote database:
+   ```bash
+   npx wrangler d1 migrations apply oceanembed-db --remote
+   ```
+
+   The date-first index keeps coverage and map requests from scanning the entire temperature table.
+
+3. Enable a `workers.dev` subdomain for the Cloudflare account if it does not have one yet. Wrangler requires this to open a remote-binding preview.
+
+4. In one terminal, run the Worker. Its D1 binding is configured to read the remote database:
 
    ```bash
    npm run worker:dev -- --port 8787
    ```
 
-4. In another terminal, start the frontend. Vite proxies `/api/ocean-query` to the local Worker:
+5. In another terminal, start the frontend. Vite proxies `/api/ocean-query` to the local Worker:
 
    ```bash
    npm run dev
