@@ -4,6 +4,47 @@ OceanEmbed is a deep-learning pipeline for reconstructing daily subsurface ocean
 
 The model ingests a multi-source, multi-day surface signal and predicts temperature at 15 standard ocean depths from 0 to 1000 m. It is trained and validated using GLORYS reanalysis and checked against independent ARGO float profiles.
 
+## Ocean temperature explorer
+
+The React dashboard explores the daily ensemble outputs stored in the Cloudflare D1 `temperatures` table. Its date selector is populated from the dates actually present in D1. Pan and zoom the map to inspect a region, select a model depth to color its grid cells, and click a cell to display its 15-level temperature profile and frontend-calculated temperature gradient.
+
+The browser calls a Cloudflare Worker proxy with a native D1 binding; account credentials and API tokens are never bundled into the frontend or stored as Worker secrets.
+
+### Run locally
+
+1. Install Node.js 20.19+ and dependencies:
+
+   ```bash
+   npm install
+   ```
+
+2. Enable a `workers.dev` subdomain for the Cloudflare account if it does not have one yet. Wrangler requires this to open a remote-binding preview.
+
+3. In one terminal, run the Worker. Its D1 binding is configured to read the remote database:
+
+   ```bash
+   npm run worker:dev -- --port 8787
+   ```
+
+4. In another terminal, start the frontend. Vite proxies `/api/ocean-query` to the local Worker:
+
+   ```bash
+   npm run dev
+   ```
+
+### Deploy the data proxy
+
+Build the Vite website before deploying the Worker that serves both the UI and API:
+
+```bash
+npm ci
+npm run deploy
+```
+
+For a Cloudflare Workers Git deployment, use `npm ci` as the install command and `npm run build` as the build command. Set the deploy command to `npx wrangler deploy` and the build output directory to `dist`. Wrangler serves the built single-page app through the `ASSETS` binding and routes `/api/ocean-query` to the D1-backed Worker.
+
+For a separately hosted frontend, set `VITE_OCEAN_API_URL` to the deployed Worker URL before building. When the frontend and Worker share an origin, the default `/api/ocean-query` URL can be used.
+
 ## Main objective
 
 Create a daily subsurface temperature product that can be generated from satellite inputs alone, with the final output suitable for decision support, ocean monitoring, and downstream analysis.

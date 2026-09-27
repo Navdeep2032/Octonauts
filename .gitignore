@@ -6,6 +6,8 @@ __pycache__/
 .Python
 build/
 dist/
+node_modules/
+.wrangler/
 *.egg-info/
 .eggs/
 .pytest_cache/
@@ -29,6 +31,7 @@ ENV/
 .env
 .env.*
 !.env.example
+.dev.vars
 *.pem
 *.key
 credentials.json

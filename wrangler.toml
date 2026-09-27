@@ -1,0 +1,14 @@
+name = "oceanembed-data-proxy"
+main = "worker/index.ts"
+compatibility_date = "2025-09-26"
+
+[assets]
+directory = "./dist"
+binding = "ASSETS"
+not_found_handling = "single-page-application"
+
+[[d1_databases]]
+binding = "DB"
+database_name = "oceanembed-db"
+database_id = "dbaa5263-8f93-4dfd-987d-94c520d532ca"
+remote = true
