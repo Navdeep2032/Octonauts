@@ -80,3 +80,8 @@ NON_TECHNICAL_README.md
 PROJECT_HANDOFF.md
 PROJECT_STATUS.md
 TECHNICAL_README.md
+Model/batch_export_cloud.py
+Model/predict_daily_subsurface.py
+D1_FRONTEND_GUIDE.md
+.wrangler
+data
