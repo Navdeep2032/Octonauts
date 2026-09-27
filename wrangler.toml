@@ -7,9 +7,5 @@ directory = "./dist"
 binding = "ASSETS"
 not_found_handling = "single-page-application"
 
-[[d1_databases]]
-binding = "DB"
-database_name = "oceanembed-db"
-database_id = "dbaa5263-8f93-4dfd-987d-94c520d532ca"
-migrations_dir = "migrations"
-remote = true
+[vars]
+SUPABASE_URL = "https://mvhtvharyruqvwmyjdqe.supabase.co"

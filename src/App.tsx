@@ -23,6 +23,8 @@ import { getCoverage, getMapPoints, getProfile } from "./api";
 import { DEPTHS, type Coverage, type Depth, type MapBounds, type MapPoint, type Profile } from "./types";
 
 const DOMAIN = { south: 5, north: 30, west: 45, east: 105 } as const;
+const DATA_START_DATE = "2026-03-01";
+const DATA_END_DATE = "2026-08-31";
 const INITIAL_BOUNDS: MapBounds = DOMAIN;
 const DOMAIN_BOUNDS: [[number, number], [number, number]] = [
   [DOMAIN.south, DOMAIN.west],
@@ -456,7 +458,7 @@ function App() {
         <div>
           <div className="eyebrow">OCEAN INTELLIGENCE · MODEL EXPLORER</div>
           <h1>See beneath the surface.</h1>
-          <p>Explore daily modelled temperature across the North Indian Ocean water column.</p>
+          <p>Explore daily modelled temperature across the North Indian Ocean water column from March through August 2026.</p>
         </div>
         <div className="coverage-badge">
           <span className={`coverage-indicator ${loadingCoverage ? "pending" : coverage ? "" : "offline"}`} />
@@ -478,8 +480,8 @@ function App() {
             <input
               type="date"
               value={date}
-              min={coverage?.earliest}
-              max={coverage?.latest}
+              min={coverage?.earliest ?? DATA_START_DATE}
+              max={coverage?.latest ?? DATA_END_DATE}
               onChange={(event) => setDate(event.target.value)}
               disabled={loadingCoverage || !coverage}
               aria-label="Prediction date"

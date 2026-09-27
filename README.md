@@ -6,9 +6,9 @@ The model ingests a multi-source, multi-day surface signal and predicts temperat
 
 ## Ocean temperature explorer
 
-The React dashboard explores the daily ensemble outputs stored in the Cloudflare D1 `temperatures` table. Its date selector is populated from the dates actually present in D1. Pan and zoom the map to inspect a region, select a model depth to color its grid cells, and click a cell to display its 15-level temperature profile and frontend-calculated temperature gradient.
+The React dashboard explores the daily ensemble outputs stored in the Supabase `public.temperatures` table. The date selector is populated from dates available in the six-month window from March 1 through August 31, 2026. Pan and zoom the map to inspect a region, select a model depth to color its grid cells, and click a cell to display its 15-level temperature profile and frontend-calculated temperature gradient.
 
-The browser calls a Cloudflare Worker proxy with a native D1 binding; account credentials and API tokens are never bundled into the frontend or stored as Worker secrets.
+The browser calls a Cloudflare Worker proxy, which invokes narrowly scoped Supabase RPC functions. Configure the Supabase anon key as a Worker secret; never use the service-role key or put either key in the frontend bundle.
 
 ### Run locally
 
@@ -18,17 +18,11 @@ The browser calls a Cloudflare Worker proxy with a native D1 binding; account cr
    npm install
    ```
 
-2. Apply the D1 query index once before using the remote database:
+2. Run [`supabase/migrations/20260927000000_oceanembed_frontend.sql`](./supabase/migrations/20260927000000_oceanembed_frontend.sql) in the Supabase SQL Editor. It adds date-first indexing, read-only RPC functions, and row-level policies limited to March–August 2026.
 
-   ```bash
-   npx wrangler d1 migrations apply oceanembed-db --remote
-   ```
+3. Copy `.dev.vars.example` to `.dev.vars` and set `SUPABASE_ANON_KEY` to the project's anon key. Do not use the service-role key. `.dev.vars` is ignored by Git.
 
-   The date-first index keeps coverage and map requests from scanning the entire temperature table.
-
-3. Enable a `workers.dev` subdomain for the Cloudflare account if it does not have one yet. Wrangler requires this to open a remote-binding preview.
-
-4. In one terminal, run the Worker. Its D1 binding is configured to read the remote database:
+4. In one terminal, run the Worker:
 
    ```bash
    npm run worker:dev -- --port 8787
@@ -42,14 +36,20 @@ The browser calls a Cloudflare Worker proxy with a native D1 binding; account cr
 
 ### Deploy the data proxy
 
-Build the Vite website before deploying the Worker that serves both the UI and API:
+Set the Supabase anon key as a Worker secret before deploying:
+
+```bash
+npx wrangler secret put SUPABASE_ANON_KEY
+```
+
+Then build and deploy:
 
 ```bash
 npm ci
 npm run deploy
 ```
 
-For a Cloudflare Workers Git deployment, use `npm ci` as the install command and `npm run build` as the build command. Set the deploy command to `npx wrangler deploy` and the build output directory to `dist`. Wrangler serves the built single-page app through the `ASSETS` binding and routes `/api/ocean-query` to the D1-backed Worker.
+For a Cloudflare Workers Git deployment, use `npm ci` as the install command and `npm run build` as the build command. Set the deploy command to `npx wrangler deploy` and the build output directory to `dist`. Wrangler serves the built single-page app through the `ASSETS` binding and routes `/api/ocean-query` to Supabase.
 
 For a separately hosted frontend, set `VITE_OCEAN_API_URL` to the deployed Worker URL before building. When the frontend and Worker share an origin, the default `/api/ocean-query` URL can be used.
 

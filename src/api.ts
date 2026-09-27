@@ -1,6 +1,8 @@
 import { DEPTHS, type Coverage, type Depth, type MapBounds, type MapPoint, type MapResponse, type Profile } from "./types";
 
 const apiUrl = import.meta.env.VITE_OCEAN_API_URL || "/api/ocean-query";
+const DATA_START_DATE = "2026-03-01";
+const DATA_END_DATE = "2026-09-01";
 
 function isRecord(value: unknown): value is Record<string, unknown> {
   return typeof value === "object" && value !== null && !Array.isArray(value);
@@ -19,7 +21,11 @@ function parseCoverage(value: unknown): Coverage {
     dates.length === 0 ||
     dates.length !== value.dates.length ||
     typeof value.earliest !== "string" ||
-    typeof value.latest !== "string"
+    typeof value.latest !== "string" ||
+    dates.some((date) => date < DATA_START_DATE || date >= DATA_END_DATE) ||
+    dates.some((date, index) => index > 0 && dates[index - 1] >= date) ||
+    value.earliest !== dates[0] ||
+    value.latest !== dates[dates.length - 1]
   ) {
     throw new Error("Ocean data service returned invalid coverage information.");
   }

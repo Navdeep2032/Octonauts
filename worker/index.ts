@@ -1,27 +1,15 @@
 const DEPTHS = [0, 5, 10, 20, 30, 50, 75, 100, 125, 150, 200, 300, 500, 700, 1000] as const;
 const DATE_PATTERN = /^\d{4}-\d{2}-\d{2}$/;
 const MAX_MAP_POINTS = 1800;
+const DATA_START_DATE = "2026-03-01";
+const DATA_END_DATE = "2026-09-01";
 
 interface Env {
-  DB: D1Database;
+  SUPABASE_URL: string;
+  SUPABASE_ANON_KEY: string;
   ASSETS: {
     fetch(request: Request): Promise<Response>;
   };
-}
-
-interface D1PreparedStatement {
-  bind(...values: (string | number)[]): D1PreparedStatement;
-  all<T>(): Promise<D1QueryResult<T>>;
-}
-
-interface D1Database {
-  prepare(query: string): D1PreparedStatement;
-}
-
-interface D1QueryResult<T> {
-  success: boolean;
-  results: T[];
-  error?: string;
 }
 
 interface Bounds {
@@ -41,6 +29,10 @@ function isRecord(value: unknown): value is Record<string, unknown> {
   return typeof value === "object" && value !== null && !Array.isArray(value);
 }
 
+function isFiniteNumber(value: unknown): value is number {
+  return typeof value === "number" && Number.isFinite(value);
+}
+
 function isDate(value: unknown): value is string {
   if (typeof value !== "string" || !DATE_PATTERN.test(value)) return false;
   const parsed = new Date(`${value}T00:00:00.000Z`);
@@ -52,10 +44,14 @@ function isDepth(value: unknown): value is (typeof DEPTHS)[number] {
 }
 
 function numberField(value: unknown, label: string): number {
-  if (typeof value !== "number" || !Number.isFinite(value)) {
-    throw new HttpError(400, `${label} must be a finite number.`);
-  }
+  if (!isFiniteNumber(value)) throw new HttpError(400, `${label} must be a finite number.`);
   return value;
+}
+
+function requireDataDate(value: unknown): asserts value is string {
+  if (!isDate(value) || value < DATA_START_DATE || value >= DATA_END_DATE) {
+    throw new HttpError(400, "Select a prediction date from March 1 through August 31, 2026.");
+  }
 }
 
 function parseBounds(value: unknown): Bounds {
@@ -80,16 +76,35 @@ function parseBounds(value: unknown): Bounds {
   return clipped;
 }
 
-async function queryD1(env: Env, sql: string, params: (string | number)[]): Promise<Record<string, unknown>[]> {
-  const statement = env.DB.prepare(sql);
-  const result = params.length
-    ? await statement.bind(...params).all<Record<string, unknown>>()
-    : await statement.all<Record<string, unknown>>();
-
-  if (!result.success || !Array.isArray(result.results) || !result.results.every(isRecord)) {
-    throw new Error(result.error || "Cloudflare D1 returned an invalid query result.");
+async function callSupabase(env: Env, rpc: string, parameters: Record<string, unknown>): Promise<unknown> {
+  if (!env.SUPABASE_URL || !env.SUPABASE_ANON_KEY) {
+    throw new Error("Supabase is not configured. Set SUPABASE_ANON_KEY for the Worker.");
   }
-  return result.results;
+
+  const baseUrl = env.SUPABASE_URL.replace(/\/+$/, "");
+  const response = await fetch(`${baseUrl}/rest/v1/rpc/${rpc}`, {
+    method: "POST",
+    headers: {
+      apikey: env.SUPABASE_ANON_KEY,
+      Authorization: `Bearer ${env.SUPABASE_ANON_KEY}`,
+      "Content-Type": "application/json",
+    },
+    body: JSON.stringify(parameters),
+  });
+
+  let result: unknown;
+  try {
+    result = await response.json();
+  } catch {
+    throw new Error(`Supabase returned an unreadable response (HTTP ${response.status}).`);
+  }
+  if (!response.ok) {
+    const message = isRecord(result) && typeof result.message === "string"
+      ? result.message
+      : `Supabase request failed (HTTP ${response.status}).`;
+    throw new Error(message);
+  }
+  return result;
 }
 
 function json(data: unknown, status = 200): Response {
@@ -120,81 +135,92 @@ async function handleRequest(request: Request, env: Env): Promise<Response> {
 
   try {
     if (body.action === "coverage") {
-      const rows = await queryD1(
-        env,
-        "SELECT DISTINCT date FROM temperatures WHERE date IS NOT NULL ORDER BY date",
-        [],
-      );
-      const dates = rows
-        .map((row) => row.date)
-        .filter((value): value is string => typeof value === "string" && isDate(value));
-      if (dates.length === 0) throw new Error("Cloudflare D1 contains no dated temperature outputs.");
-      return json({ success: true, data: { dates, earliest: dates[0], latest: dates[dates.length - 1] } });
+      const coverage = await callSupabase(env, "oceanembed_coverage", {});
+      if (
+        !isRecord(coverage) ||
+        !Array.isArray(coverage.dates) ||
+        coverage.dates.length === 0 ||
+        !coverage.dates.every((date) => isDate(date) && date >= DATA_START_DATE && date < DATA_END_DATE)
+      ) {
+        throw new Error("Supabase contains no valid temperature dates from March through August 2026.");
+      }
+      const dates = coverage.dates as string[];
+      if (
+        typeof coverage.earliest !== "string" ||
+        typeof coverage.latest !== "string" ||
+        coverage.earliest !== dates[0] ||
+        coverage.latest !== dates[dates.length - 1]
+      ) {
+        throw new Error("Supabase returned inconsistent temperature date coverage.");
+      }
+      return json({ success: true, data: { dates, earliest: coverage.earliest, latest: coverage.latest } });
     }
 
     if (body.action === "map") {
-      if (!isDate(body.date)) throw new HttpError(400, "Select a valid prediction date in YYYY-MM-DD format.");
+      requireDataDate(body.date);
       if (!isDepth(body.depth)) throw new HttpError(400, "Select one of the 15 modelled depth levels.");
       const bounds = parseBounds(body.bounds);
       const latCells = Math.ceil((bounds.north - bounds.south) * 4) + 1;
       const lonCells = Math.ceil((bounds.east - bounds.west) * 4) + 1;
       const stride = Math.max(1, Math.ceil(Math.sqrt((latCells * lonCells) / MAX_MAP_POINTS)));
-      const depthColumn = `d${body.depth}`;
-      const rows = await queryD1(
-        env,
-        `SELECT lat, lon, ${depthColumn} AS temperature FROM temperatures
-         WHERE date = ? AND lat BETWEEN ? AND ? AND lon BETWEEN ? AND ?
-           AND d0 > 0
-           AND CAST(ROUND((lat - 5.0) * 4) AS INTEGER) % ? = 0
-           AND CAST(ROUND((lon - 45.0) * 4) AS INTEGER) % ? = 0
-         ORDER BY lat, lon LIMIT ${MAX_MAP_POINTS}`,
-        [body.date, bounds.south, bounds.north, bounds.west, bounds.east, stride, stride],
-      );
-      const points = rows.map((row) => {
-        if (
-          typeof row.lat !== "number" ||
-          typeof row.lon !== "number" ||
-          typeof row.temperature !== "number" ||
-          !Number.isFinite(row.temperature)
-        ) {
-          throw new Error("Cloudflare D1 returned an invalid temperature grid point.");
-        }
-        return { lat: row.lat, lon: row.lon, temperature: row.temperature };
+      const map = await callSupabase(env, "oceanembed_map", {
+        p_date: body.date,
+        p_depth: body.depth,
+        p_south: bounds.south,
+        p_north: bounds.north,
+        p_west: bounds.west,
+        p_east: bounds.east,
+        p_stride: stride,
+        p_limit: MAX_MAP_POINTS,
       });
+      if (!isRecord(map) || !Array.isArray(map.points) || !isFiniteNumber(map.stride) || map.stride !== stride) {
+        throw new Error("Supabase returned an invalid map response.");
+      }
+      const points = map.points.map((point) => {
+        if (!isRecord(point) || !isFiniteNumber(point.lat) || !isFiniteNumber(point.lon) || !isFiniteNumber(point.temperature)) {
+          throw new Error("Supabase returned an invalid temperature grid point.");
+        }
+        return { lat: point.lat, lon: point.lon, temperature: point.temperature };
+      });
+      if (points.length > MAX_MAP_POINTS) throw new Error("Supabase returned too many map points.");
       return json({ success: true, data: { points, stride } });
     }
 
     if (body.action === "profile") {
-      if (!isDate(body.date)) throw new HttpError(400, "Select a valid prediction date in YYYY-MM-DD format.");
+      requireDataDate(body.date);
       const lat = numberField(body.lat, "Latitude");
       const lon = numberField(body.lon, "Longitude");
       if (lat < 5 || lat > 30 || lon < 45 || lon > 105) {
         throw new HttpError(400, "The selected coordinate is outside the North Indian Ocean data domain.");
       }
-      const columns = DEPTHS.map((depth) => `d${depth}`).join(", ");
-      const rows = await queryD1(
-        env,
-        `SELECT date, lat, lon, ${columns} FROM temperatures
-         WHERE date = ? AND lat BETWEEN ? AND ? AND lon BETWEEN ? AND ? AND d0 > 0
-         ORDER BY ABS(lat - ?) + ABS(lon - ?) LIMIT 1`,
-        [body.date, lat - 0.126, lat + 0.126, lon - 0.126, lon + 0.126, lat, lon],
-      );
-      if (rows.length === 0) return json({ success: true, data: { profile: null } });
-
-      const row = rows[0];
-      const rowDate = row.date;
-      if (typeof rowDate !== "string" || !isDate(rowDate) || typeof row.lat !== "number" || typeof row.lon !== "number") {
-        throw new Error("Cloudflare D1 returned an invalid temperature profile.");
+      const profile = await callSupabase(env, "oceanembed_profile", {
+        p_date: body.date,
+        p_lat: lat,
+        p_lon: lon,
+      });
+      if (profile === null) return json({ success: true, data: { profile: null } });
+      if (
+        !isRecord(profile) ||
+        !isRecord(profile.depths) ||
+        typeof profile.date !== "string" ||
+        !isDate(profile.date) ||
+        profile.date < DATA_START_DATE ||
+        profile.date >= DATA_END_DATE ||
+        !isFiniteNumber(profile.lat) ||
+        !isFiniteNumber(profile.lon)
+      ) {
+        throw new Error("Supabase returned an invalid temperature profile.");
       }
       const depths = {} as Record<(typeof DEPTHS)[number], number>;
       for (const depth of DEPTHS) {
-        const value = row[`d${depth}`];
-        if (typeof value !== "number" || !Number.isFinite(value)) {
-          throw new Error(`Cloudflare D1 returned an invalid temperature at ${depth} m.`);
-        }
+        const value = profile.depths[String(depth)];
+        if (!isFiniteNumber(value)) throw new Error(`Supabase returned an invalid temperature at ${depth} m.`);
         depths[depth] = value;
       }
-      return json({ success: true, data: { profile: { date: rowDate, lat: row.lat, lon: row.lon, depths } } });
+      return json({
+        success: true,
+        data: { profile: { date: profile.date, lat: profile.lat, lon: profile.lon, depths } },
+      });
     }
 
     throw new HttpError(400, "Supported actions are coverage, map, and profile.");
