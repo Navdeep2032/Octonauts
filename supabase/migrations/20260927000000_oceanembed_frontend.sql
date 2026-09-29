@@ -5,42 +5,33 @@ ALTER TABLE public.temperatures ENABLE ROW LEVEL SECURITY;
 
 DROP POLICY IF EXISTS oceanembed_six_month_read ON public.temperatures;
 DROP POLICY IF EXISTS oceanembed_six_month_window ON public.temperatures;
+DROP POLICY IF EXISTS oceanembed_all_dates_read ON public.temperatures;
 
-CREATE POLICY oceanembed_six_month_read
+CREATE POLICY oceanembed_all_dates_read
   ON public.temperatures
   AS PERMISSIVE
   FOR SELECT
   TO anon, authenticated
-  USING (date >= '2026-03-01' AND date < '2026-09-01');
-
-CREATE POLICY oceanembed_six_month_window
-  ON public.temperatures
-  AS RESTRICTIVE
-  FOR SELECT
-  TO anon, authenticated
-  USING (date >= '2026-03-01' AND date < '2026-09-01');
+  USING (true);
 
 GRANT SELECT ON public.temperatures TO anon, authenticated;
 
 CREATE OR REPLACE FUNCTION public.oceanembed_coverage()
 RETURNS jsonb
-LANGUAGE sql
+LANGUAGE plpgsql
 STABLE
 SET search_path = public
 AS $$
-  WITH available AS (
-    SELECT DISTINCT t.date
-    FROM public.temperatures AS t
-    WHERE t.date >= '2026-03-01'
-      AND t.date < '2026-09-01'
-      AND t.date::text ~ '^[0-9]{4}-[0-9]{2}-[0-9]{2}$'
-  )
-  SELECT jsonb_build_object(
-    'dates', COALESCE(jsonb_agg(date ORDER BY date), '[]'::jsonb),
-    'earliest', min(date),
-    'latest', max(date)
-  )
-  FROM available;
+DECLARE
+  earliest date;
+  latest date;
+BEGIN
+  SELECT min(t.date), max(t.date)
+  INTO earliest, latest
+  FROM public.temperatures AS t;
+
+  RETURN jsonb_build_object('earliest', earliest, 'latest', latest);
+END;
 $$;
 
 CREATE OR REPLACE FUNCTION public.oceanembed_map(
@@ -61,9 +52,6 @@ AS $$
 DECLARE
   result jsonb;
 BEGIN
-  IF p_date < DATE '2026-03-01' OR p_date >= DATE '2026-09-01' THEN
-    RAISE EXCEPTION 'Date is outside the March-August 2026 data window';
-  END IF;
   IF p_depth NOT IN (0, 5, 10, 20, 30, 50, 75, 100, 125, 150, 200, 300, 500, 700, 1000) THEN
     RAISE EXCEPTION 'Unsupported model depth';
   END IF;
@@ -112,7 +100,7 @@ BEGIN
         WHEN 1000 THEN t.d1000
       END::double precision AS temperature
     FROM public.temperatures AS t
-    WHERE t.date = to_char(p_date, 'YYYY-MM-DD')
+    WHERE t.date = p_date
       AND t.lat BETWEEN p_south AND p_north
       AND t.lon BETWEEN p_west AND p_east
       AND t.d0 > 0
@@ -139,9 +127,6 @@ AS $$
 DECLARE
   result jsonb;
 BEGIN
-  IF p_date < DATE '2026-03-01' OR p_date >= DATE '2026-09-01' THEN
-    RAISE EXCEPTION 'Date is outside the March-August 2026 data window';
-  END IF;
   IF p_lat < 5 OR p_lat > 30 OR p_lon < 45 OR p_lon > 105 THEN
     RAISE EXCEPTION 'Coordinate is outside the model domain';
   END IF;
@@ -170,7 +155,7 @@ BEGIN
   )
   INTO result
   FROM public.temperatures AS t
-  WHERE t.date = to_char(p_date, 'YYYY-MM-DD')
+  WHERE t.date = p_date
     AND t.lat BETWEEN p_lat - 0.126 AND p_lat + 0.126
     AND t.lon BETWEEN p_lon - 0.126 AND p_lon + 0.126
     AND t.d0 > 0
