@@ -223,7 +223,7 @@ function TemperatureMap({
         center={[17.5, 75]}
         zoom={3}
         minZoom={2}
-        maxZoom={9}
+        maxZoom={8}
         maxBounds={DOMAIN_BOUNDS}
         maxBoundsViscosity={1}
         scrollWheelZoom
@@ -238,6 +238,8 @@ function TemperatureMap({
         <TileLayer
           attribution='Tiles &copy; <a href="https://www.esri.com/">Esri</a> &mdash; Sources: GEBCO, NOAA, National Geographic, DeLorme, HERE, and other contributors'
           url="https://server.arcgisonline.com/ArcGIS/rest/services/World_Physical_Map/MapServer/tile/{z}/{y}/{x}"
+          maxNativeZoom={8}
+          maxZoom={8}
         />
         <MapViewport onChange={onBoundsChange} />
         {points.map((point) => (
