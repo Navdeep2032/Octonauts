@@ -55,6 +55,8 @@ If deploying through Cloudflare's Git integration, add the secret under the Work
 
 For a Cloudflare Workers Git deployment, use `npm ci` as the install command and `npm run build` as the build command. Set the deploy command to `npx wrangler deploy` and the build output directory to `dist`. Wrangler serves the built single-page app through the `ASSETS` binding and routes `/api/ocean-query` to Supabase.
 
+For Cloudflare preview deployments using `npx wrangler preview`, `wrangler.toml` provides the Supabase URL under `[previews.vars]`. This currently points previews at the same Supabase project as production; use a separate staging project URL there if preview traffic must not read production data. Configure `SUPABASE_ANON_KEY` as a preview secret in Cloudflare if preview deployments should load data.
+
 For a separately hosted frontend, set `VITE_OCEAN_API_URL` to the deployed Worker URL before building. When the frontend and Worker share an origin, the default `/api/ocean-query` URL can be used.
 
 ### Use a cleaner URL

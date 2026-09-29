@@ -9,3 +9,6 @@ not_found_handling = "single-page-application"
 
 [vars]
 SUPABASE_URL = "https://mvhtvharyruqvwmyjdqe.supabase.co"
+
+[previews.vars]
+SUPABASE_URL = "https://mvhtvharyruqvwmyjdqe.supabase.co"
