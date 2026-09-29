@@ -88,15 +88,23 @@ h1 { margin-bottom: 7px; font-size: clamp(26px, 3vw, 34px); font-weight: 700; le
 .profile-location { display: grid; gap: 4px; padding: 8px 11px; border: 1px solid #e5ece9; border-radius: 8px; background: #fff; text-align: right; }
 .profile-location span { color: #899793; font-size: 8px; font-weight: 700; letter-spacing: 1px; }
 .profile-location strong { color: #3e5c55; font-size: 11px; font-weight: 600; }
-.charts-grid { display: grid; grid-template-columns: 1fr 1fr; gap: 14px; }
+.charts-grid { display: grid; grid-template-columns: minmax(0, 1fr); gap: 16px; }
 .chart-card { min-width: 0; padding: 16px 16px 8px; border: 1px solid #e5ece9; border-radius: 10px; background: #fff; }
 .chart-title { display: flex; align-items: flex-start; justify-content: space-between; gap: 12px; }
 .chart-title h3 { margin: 0 0 4px; font-size: 12px; font-weight: 700; }
 .chart-title p { margin: 0; color: #899793; font-size: 10px; }
 .chart-unit { padding: 5px 7px; border-radius: 5px; background: #f2f7f5; color: #5c7971; font-size: 9px; white-space: nowrap; }
-.chart { width: 100%; height: 242px; margin-top: 8px; }
+.chart-card-content { display: grid; grid-template-columns: minmax(0, 1fr) 190px; gap: 14px; align-items: stretch; margin-top: 8px; }
+.chart { width: 100%; height: 360px; }
 .chart-tooltip { display: grid; gap: 5px; padding: 9px 11px; border: 1px solid #e6eeeb; border-radius: 10px; background: #fff; color: #3e5c55; font-size: 12px; box-shadow: 0 4px 16px rgb(30 60 50 / 10%); }
 .chart-tooltip span { color: #137c78; }
+.chart-key-data { align-self: stretch; padding: 15px 14px; border: 1px solid #163346; border-top: 2px solid var(--metric-accent); border-radius: 7px; background: #081522; color: #e8f2f5; }
+.chart-key-data h4 { margin: 0; padding-bottom: 10px; border-bottom: 1px solid #193044; color: #6de5df; font-size: 10px; font-weight: 700; letter-spacing: 1.6px; }
+.chart-key-data dl { display: grid; margin: 0; }
+.chart-key-metric { display: grid; gap: 5px; padding: 11px 0; border-bottom: 1px solid #193044; }
+.chart-key-metric dt { color: #89a8be; font-size: 9px; font-weight: 600; letter-spacing: .8px; text-transform: uppercase; }
+.chart-key-metric dd { margin: 0; color: #f4f8fb; font: 600 15px "DM Mono", Consolas, monospace; line-height: 1.35; overflow-wrap: anywhere; }
+.chart-key-caption { display: block; padding-top: 12px; color: #83a0b5; font: 10px "DM Mono", Consolas, monospace; }
 .empty-profile, .profile-loading { min-height: 184px; display: flex; align-items: center; justify-content: center; gap: 11px; border: 1px dashed #dce6e2; border-radius: 10px; background: #f9fbfa; color: #869590; font-size: 11px; }
 .empty-profile-mark { display: grid; width: 28px; height: 28px; place-items: center; border-radius: 50%; background: #e7f2ef; color: #368c7d; font-size: 16px; }
 .profile-loading { min-height: 56px; margin-bottom: 12px; border-style: solid; background: #fff; }
@@ -118,8 +126,8 @@ h1 { margin-bottom: 7px; font-size: clamp(26px, 3vw, 34px); font-weight: 700; le
   .map-section { margin-top: 22px; }
   .map-frame { height: 390px; }
   .map-hint { top: 10px; max-width: calc(100% - 24px); overflow: hidden; text-overflow: ellipsis; }
-  .charts-grid { grid-template-columns: 1fr; }
-  .chart { height: 225px; }
+  .chart-card-content { grid-template-columns: minmax(0, 1fr) 160px; gap: 10px; }
+  .chart { height: 330px; }
   .profile-heading { align-items: flex-start; flex-direction: column; }
   .profile-location { text-align: left; }
   .footer { flex-direction: column; gap: 7px; }
@@ -131,4 +139,7 @@ h1 { margin-bottom: 7px; font-size: clamp(26px, 3vw, 34px); font-weight: 700; le
   .meta-divider { margin: 0 1px; }
   .map-frame { height: 350px; }
   .map-scale { right: 9px; bottom: 9px; }
+  .chart-card-content { grid-template-columns: 1fr; }
+  .chart { height: 300px; }
+  .chart-key-data dl { grid-template-columns: 1fr 1fr; column-gap: 14px; }
 }

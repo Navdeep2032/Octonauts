@@ -1,4 +1,4 @@
-import { useCallback, useEffect, useMemo, useRef, useState } from "react";
+import { useCallback, useEffect, useMemo, useRef, useState, type CSSProperties } from "react";
 import {
   CartesianGrid,
   ResponsiveContainer,
@@ -67,6 +67,11 @@ interface ChartTooltipPoint {
   unit: string;
 }
 
+interface KeyMetric {
+  label: string;
+  value: string;
+}
+
 function isChartTooltipPoint(value: unknown): value is ChartTooltipPoint {
   return (
     typeof value === "object" &&
@@ -89,6 +94,23 @@ function ChartTooltip({ active, payload }: TooltipContentProps) {
       <strong>{point.depth.toFixed(1)} m depth</strong>
       <span>{point.value.toFixed(3)} {point.unit}</span>
     </div>
+  );
+}
+
+function ChartKeyData({ title, metrics, accent }: { title: string; metrics: KeyMetric[]; accent: string }) {
+  return (
+    <aside className="chart-key-data" style={{ "--metric-accent": accent } as CSSProperties}>
+      <h4>KEY DATA</h4>
+      <dl>
+        {metrics.map(({ label, value }) => (
+          <div className="chart-key-metric" key={label}>
+            <dt>{label}</dt>
+            <dd>{value}</dd>
+          </div>
+        ))}
+      </dl>
+      <span className="chart-key-caption">{title}</span>
+    </aside>
   );
 }
 
@@ -268,6 +290,20 @@ function TemperatureChart({ profile }: { profile: Profile }) {
       unit: "°C / 100 m",
     };
   });
+  const temperatures = DEPTHS.map((depth) => profile.depths[depth]);
+  const coldest = Math.min(...temperatures);
+  const warmest = Math.max(...temperatures);
+  const strongestWarming = gradientRows.reduce((strongest, row) =>
+    row.gradient > strongest.gradient ? row : strongest,
+  );
+  const strongestCooling = gradientRows.reduce((strongest, row) =>
+    row.gradient < strongest.gradient ? row : strongest,
+  );
+  const steepestChange = gradientRows.reduce((strongest, row) =>
+    Math.abs(row.gradient) > Math.abs(strongest.gradient) ? row : strongest,
+  );
+  const meanAbsGradient =
+    gradientRows.reduce((total, row) => total + Math.abs(row.gradient), 0) / gradientRows.length;
 
   return (
     <div className="charts-grid">
@@ -279,44 +315,57 @@ function TemperatureChart({ profile }: { profile: Profile }) {
           </div>
           <span className="chart-unit">°C</span>
         </div>
-        <div className="chart">
-          <ResponsiveContainer width="100%" height="100%">
-            <ScatterChart margin={{ top: 12, right: 22, left: 2, bottom: 8 }}>
-              <CartesianGrid stroke="#e9efed" strokeDasharray="3 5" />
-              <XAxis
-                type="number"
-                dataKey="temperature"
-                domain={["dataMin - 1", "dataMax + 1"]}
-                tick={{ fill: "#788784", fontSize: 11 }}
-                tickLine={false}
-                axisLine={false}
-                label={{ value: "Temperature (°C)", position: "insideBottom", offset: -2, fill: "#788784", fontSize: 11 }}
-                name="Temperature"
-              />
-              <YAxis
-                type="number"
-                dataKey="depth"
-                reversed
-                domain={[0, 1000]}
-                ticks={[0, 100, 200, 500, 1000]}
-                tick={{ fill: "#788784", fontSize: 11 }}
-                tickLine={false}
-                axisLine={false}
-                label={{ value: "Depth (m)", angle: -90, position: "insideLeft", fill: "#788784", fontSize: 11 }}
-                name="Depth"
-              />
-              <Tooltip content={ChartTooltip} />
-              <Scatter
-                data={temperatureRows}
-                dataKey="temperature"
-                fill="#137c78"
-                line={{ stroke: "#137c78", strokeWidth: 2.5 }}
-                lineType="joint"
-                name="Temperature"
-                shape="circle"
-              />
-            </ScatterChart>
-          </ResponsiveContainer>
+        <div className="chart-card-content">
+          <div className="chart">
+            <ResponsiveContainer width="100%" height="100%">
+              <ScatterChart margin={{ top: 12, right: 22, left: 2, bottom: 8 }}>
+                <CartesianGrid stroke="#e9efed" strokeDasharray="3 5" />
+                <XAxis
+                  type="number"
+                  dataKey="temperature"
+                  domain={["dataMin - 1", "dataMax + 1"]}
+                  tick={{ fill: "#788784", fontSize: 11 }}
+                  tickLine={false}
+                  axisLine={false}
+                  label={{ value: "Temperature (°C)", position: "insideBottom", offset: -2, fill: "#788784", fontSize: 11 }}
+                  name="Temperature"
+                />
+                <YAxis
+                  type="number"
+                  dataKey="depth"
+                  reversed
+                  domain={[0, 1000]}
+                  ticks={[0, 100, 200, 500, 1000]}
+                  tick={{ fill: "#788784", fontSize: 11 }}
+                  tickLine={false}
+                  axisLine={false}
+                  label={{ value: "Depth (m)", angle: -90, position: "insideLeft", fill: "#788784", fontSize: 11 }}
+                  name="Depth"
+                />
+                <Tooltip content={ChartTooltip} />
+                <Scatter
+                  data={temperatureRows}
+                  dataKey="temperature"
+                  fill="#137c78"
+                  line={{ stroke: "#137c78", strokeWidth: 2.5 }}
+                  lineType="joint"
+                  name="Temperature"
+                  shape="circle"
+                />
+              </ScatterChart>
+            </ResponsiveContainer>
+          </div>
+          <ChartKeyData
+            title={profile.date}
+            accent="#137c78"
+            metrics={[
+              { label: "Surface", value: `${profile.depths[0].toFixed(2)} °C` },
+              { label: "At 1,000 m", value: `${profile.depths[1000].toFixed(2)} °C` },
+              { label: "Column range", value: `${(warmest - coldest).toFixed(2)} °C` },
+              { label: "Warmest", value: `${warmest.toFixed(2)} °C` },
+              { label: "Coldest", value: `${coldest.toFixed(2)} °C` },
+            ]}
+          />
         </div>
       </section>
 
@@ -328,44 +377,57 @@ function TemperatureChart({ profile }: { profile: Profile }) {
           </div>
           <span className="chart-unit">°C / 100 m</span>
         </div>
-        <div className="chart">
-          <ResponsiveContainer width="100%" height="100%">
-            <ScatterChart margin={{ top: 12, right: 22, left: 2, bottom: 8 }}>
-              <CartesianGrid stroke="#e9efed" strokeDasharray="3 5" />
-              <XAxis
-                type="number"
-                dataKey="gradient"
-                domain={["auto", "auto"]}
-                tick={{ fill: "#788784", fontSize: 11 }}
-                tickLine={false}
-                axisLine={false}
-                label={{ value: "°C / 100 m", position: "insideBottom", offset: -2, fill: "#788784", fontSize: 11 }}
-                name="Temperature gradient"
-              />
-              <YAxis
-                type="number"
-                dataKey="depth"
-                reversed
-                domain={[0, 1000]}
-                ticks={[0, 100, 200, 500, 1000]}
-                tick={{ fill: "#788784", fontSize: 11 }}
-                tickLine={false}
-                axisLine={false}
-                label={{ value: "Depth (m)", angle: -90, position: "insideLeft", fill: "#788784", fontSize: 11 }}
-                name="Depth"
-              />
-              <Tooltip content={ChartTooltip} />
-              <Scatter
-                data={gradientRows}
-                dataKey="gradient"
-                fill="#db8b50"
-                line={{ stroke: "#db8b50", strokeWidth: 2.5 }}
-                lineType="joint"
-                name="Gradient"
-                shape="circle"
-              />
-            </ScatterChart>
-          </ResponsiveContainer>
+        <div className="chart-card-content">
+          <div className="chart">
+            <ResponsiveContainer width="100%" height="100%">
+              <ScatterChart margin={{ top: 12, right: 22, left: 2, bottom: 8 }}>
+                <CartesianGrid stroke="#e9efed" strokeDasharray="3 5" />
+                <XAxis
+                  type="number"
+                  dataKey="gradient"
+                  domain={["auto", "auto"]}
+                  tick={{ fill: "#788784", fontSize: 11 }}
+                  tickLine={false}
+                  axisLine={false}
+                  label={{ value: "°C / 100 m", position: "insideBottom", offset: -2, fill: "#788784", fontSize: 11 }}
+                  name="Temperature gradient"
+                />
+                <YAxis
+                  type="number"
+                  dataKey="depth"
+                  reversed
+                  domain={[0, 1000]}
+                  ticks={[0, 100, 200, 500, 1000]}
+                  tick={{ fill: "#788784", fontSize: 11 }}
+                  tickLine={false}
+                  axisLine={false}
+                  label={{ value: "Depth (m)", angle: -90, position: "insideLeft", fill: "#788784", fontSize: 11 }}
+                  name="Depth"
+                />
+                <Tooltip content={ChartTooltip} />
+                <Scatter
+                  data={gradientRows}
+                  dataKey="gradient"
+                  fill="#db8b50"
+                  line={{ stroke: "#db8b50", strokeWidth: 2.5 }}
+                  lineType="joint"
+                  name="Gradient"
+                  shape="circle"
+                />
+              </ScatterChart>
+            </ResponsiveContainer>
+          </div>
+          <ChartKeyData
+            title={profile.date}
+            accent="#db8b50"
+            metrics={[
+              { label: "Strongest warming", value: `${strongestWarming.gradient.toFixed(3)} °C / 100 m` },
+              { label: "Strongest cooling", value: `${strongestCooling.gradient.toFixed(3)} °C / 100 m` },
+              { label: "Steepest change", value: `${Math.abs(steepestChange.gradient).toFixed(3)} °C / 100 m` },
+              { label: "At depth", value: `${steepestChange.depth} m midpoint` },
+              { label: "Mean |gradient|", value: `${meanAbsGradient.toFixed(3)} °C / 100 m` },
+            ]}
+          />
         </div>
       </section>
     </div>
