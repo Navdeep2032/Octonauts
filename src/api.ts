@@ -1,4 +1,13 @@
-import { DEPTHS, type Coverage, type Depth, type MapBounds, type MapPoint, type MapResponse, type Profile } from "./types";
+import {
+  DEPTHS,
+  type Coverage,
+  type Depth,
+  type HistoryPoint,
+  type MapBounds,
+  type MapPoint,
+  type MapResponse,
+  type Profile,
+} from "./types";
 
 const apiUrl = import.meta.env.VITE_OCEAN_API_URL || "/api/ocean-query";
 
@@ -127,4 +136,36 @@ export async function getProfile(
 ): Promise<Profile | null> {
   const result = await request({ action: "profile", date, lat, lon }, parseProfileResponse, signal);
   return result.profile;
+}
+
+function parseHistory(value: unknown): HistoryPoint[] {
+  if (!Array.isArray(value)) throw new Error("Ocean data service returned invalid temperature history.");
+
+  return value.map((row, index) => {
+    if (!isRecord(row) || typeof row.date !== "string" || !/^\d{4}-\d{2}-\d{2}$/.test(row.date)) {
+      throw new Error("Ocean data service returned an invalid history date.");
+    }
+    const previous = value[index - 1];
+    if (index > 0 && (!isRecord(previous) || typeof previous.date !== "string" || previous.date >= row.date)) {
+      throw new Error("Ocean data service returned unsorted temperature history.");
+    }
+    const rowDepths = row.depths;
+    if (!isRecord(rowDepths) || !DEPTHS.every((depth) => isFiniteNumber(rowDepths[depth]))) {
+      throw new Error("Ocean data service returned an incomplete temperature history row.");
+    }
+
+    const depths = {} as Record<Depth, number>;
+    for (const depth of DEPTHS) depths[depth] = rowDepths[depth] as number;
+    return { date: row.date, depths };
+  });
+}
+
+export function getHistory(
+  endDate: string,
+  days: 7 | 14 | 30,
+  lat: number,
+  lon: number,
+  signal?: AbortSignal,
+): Promise<HistoryPoint[]> {
+  return request({ action: "history", date: endDate, days, lat, lon }, parseHistory, signal);
 }

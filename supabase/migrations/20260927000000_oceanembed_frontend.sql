@@ -166,10 +166,96 @@ BEGIN
 END;
 $$;
 
+CREATE OR REPLACE FUNCTION public.oceanembed_history(
+  p_end_date date,
+  p_days integer,
+  p_lat double precision,
+  p_lon double precision
+)
+RETURNS jsonb
+LANGUAGE plpgsql
+STABLE
+SET search_path = public
+AS $$
+DECLARE
+  result jsonb;
+BEGIN
+  IF p_days NOT IN (7, 14, 30) THEN
+    RAISE EXCEPTION 'History window must be 7, 14, or 30 days';
+  END IF;
+  IF p_lat < 5 OR p_lat > 30 OR p_lon < 45 OR p_lon > 105 THEN
+    RAISE EXCEPTION 'Coordinate is outside the model domain';
+  END IF;
+
+  SELECT COALESCE(
+    jsonb_agg(
+      jsonb_build_object(
+        'date', history.date,
+        'depths', jsonb_build_object(
+          '0', history.d0,
+          '5', history.d5,
+          '10', history.d10,
+          '20', history.d20,
+          '30', history.d30,
+          '50', history.d50,
+          '75', history.d75,
+          '100', history.d100,
+          '125', history.d125,
+          '150', history.d150,
+          '200', history.d200,
+          '300', history.d300,
+          '500', history.d500,
+          '700', history.d700,
+          '1000', history.d1000
+        )
+      )
+      ORDER BY history.date
+    ),
+    '[]'::jsonb
+  )
+  INTO result
+  FROM generate_series(
+    p_end_date - (p_days - 1),
+    p_end_date,
+    interval '1 day'
+  ) AS requested(day)
+  CROSS JOIN LATERAL (
+    SELECT
+      t.date,
+      t.d0,
+      t.d5,
+      t.d10,
+      t.d20,
+      t.d30,
+      t.d50,
+      t.d75,
+      t.d100,
+      t.d125,
+      t.d150,
+      t.d200,
+      t.d300,
+      t.d500,
+      t.d700,
+      t.d1000
+    FROM public.temperatures AS t
+    WHERE t.date = requested.day::date
+      AND t.lat BETWEEN p_lat - 0.126 AND p_lat + 0.126
+      AND t.lon BETWEEN p_lon - 0.126 AND p_lon + 0.126
+      AND t.d0 > 0
+    ORDER BY abs(t.lat - p_lat) + abs(t.lon - p_lon)
+    LIMIT 1
+  ) AS history;
+
+  RETURN result;
+END;
+$$;
+
 REVOKE ALL ON FUNCTION public.oceanembed_coverage() FROM PUBLIC;
 REVOKE ALL ON FUNCTION public.oceanembed_map(date, integer, double precision, double precision, double precision, double precision, integer, integer) FROM PUBLIC;
 REVOKE ALL ON FUNCTION public.oceanembed_profile(date, double precision, double precision) FROM PUBLIC;
+REVOKE ALL ON FUNCTION public.oceanembed_history(date, integer, double precision, double precision) FROM PUBLIC;
 
 GRANT EXECUTE ON FUNCTION public.oceanembed_coverage() TO anon, authenticated;
 GRANT EXECUTE ON FUNCTION public.oceanembed_map(date, integer, double precision, double precision, double precision, double precision, integer, integer) TO anon, authenticated;
 GRANT EXECUTE ON FUNCTION public.oceanembed_profile(date, double precision, double precision) TO anon, authenticated;
+GRANT EXECUTE ON FUNCTION public.oceanembed_history(date, integer, double precision, double precision) TO anon, authenticated;

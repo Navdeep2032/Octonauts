@@ -27,6 +27,11 @@ export interface Profile {
   depths: Record<Depth, number>;
 }
 
+export interface HistoryPoint {
+  date: string;
+  depths: Record<Depth, number>;
+}
+
 export interface MapResponse {
   points: MapPoint[];
   stride: number;
