@@ -2,6 +2,9 @@ import {
   DEPTHS,
   type Coverage,
   type Depth,
+  type ExportCursor,
+  type ExportPage,
+  type ExportRow,
   type MapBounds,
   type MapPoint,
   type MapResponse,
@@ -83,6 +86,36 @@ function parseProfileResponse(value: unknown): { profile: Profile | null } {
   };
 }
 
+function parseExportPage(value: unknown): ExportPage {
+  if (!isRecord(value) || !Array.isArray(value.rows) || value.rows.length > 5000) {
+    throw new Error("Ocean data service returned an invalid download page.");
+  }
+  const rows: ExportRow[] = value.rows.map((row) => {
+    if (
+      !isRecord(row) ||
+      typeof row.date !== "string" ||
+      !/^\d{4}-\d{2}-\d{2}$/.test(row.date) ||
+      !isFiniteNumber(row.lat) ||
+      !isFiniteNumber(row.lon)
+    ) {
+      throw new Error("Ocean data service returned an invalid download row.");
+    }
+    const depths = {} as Record<Depth, number | null>;
+    for (const depth of DEPTHS) {
+      const temperature = row[`d${depth}`];
+      if (temperature === null) {
+        depths[depth] = null;
+      } else if (isFiniteNumber(temperature)) {
+        depths[depth] = temperature;
+      } else {
+        throw new Error(`Ocean data service returned an invalid ${depth} m download value.`);
+      }
+    }
+    return { date: row.date, lat: row.lat, lon: row.lon, depths };
+  });
+  return { rows };
+}
+
 async function request<T>(
   payload: Record<string, unknown>,
   parse: (data: unknown) => T,
@@ -135,4 +168,13 @@ export async function getProfile(
 ): Promise<Profile | null> {
   const result = await request({ action: "profile", date, lat, lon }, parseProfileResponse, signal);
   return result.profile;
+}
+
+export function getExportPage(
+  startDate: string,
+  endDate: string,
+  after: ExportCursor | null,
+  signal?: AbortSignal,
+): Promise<ExportPage> {
+  return request({ action: "export", startDate, endDate, after }, parseExportPage, signal);
 }

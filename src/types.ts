@@ -31,3 +31,17 @@ export interface MapResponse {
   points: MapPoint[];
   stride: number;
 }
+
+export interface ExportCursor {
+  date: string;
+  lat: number;
+  lon: number;
+}
+
+export interface ExportRow extends ExportCursor {
+  depths: Record<Depth, number | null>;
+}
+
+export interface ExportPage {
+  rows: ExportRow[];
+}

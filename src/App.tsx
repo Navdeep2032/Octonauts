@@ -20,11 +20,12 @@ import {
   useMap,
   useMapEvents,
 } from "react-leaflet";
-import { getCoverage, getMapPoints, getProfile } from "./api";
+import { getCoverage, getExportPage, getMapPoints, getProfile } from "./api";
 import {
   DEPTHS,
   type Coverage,
   type Depth,
+  type ExportCursor,
   type MapBounds,
   type MapPoint,
   type Profile,
@@ -36,6 +37,30 @@ const DOMAIN_BOUNDS: [[number, number], [number, number]] = [
   [DOMAIN.south, DOMAIN.west],
   [DOMAIN.north, DOMAIN.east],
 ];
+const EXPORT_PAGE_SIZE = 5000;
+type ExportPeriod = "7d" | "14d" | "1m" | "3m";
+
+function isExportPeriod(value: string): value is ExportPeriod {
+  return value === "7d" || value === "14d" || value === "1m" || value === "3m";
+}
+
+function getExportStartDate(latest: string, period: ExportPeriod): string {
+  const date = new Date(`${latest}T00:00:00.000Z`);
+  if (period.endsWith("d")) {
+    date.setUTCDate(date.getUTCDate() - Number.parseInt(period, 10) + 1);
+  } else {
+    const dayOfMonth = date.getUTCDate();
+    date.setUTCDate(1);
+    date.setUTCMonth(date.getUTCMonth() - Number.parseInt(period, 10));
+    const lastDayOfMonth = new Date(Date.UTC(date.getUTCFullYear(), date.getUTCMonth() + 1, 0)).getUTCDate();
+    date.setUTCDate(Math.min(dayOfMonth, lastDayOfMonth));
+  }
+  return date.toISOString().slice(0, 10);
+}
+
+function csvField(value: string): string {
+  return `"${value.replaceAll('"', '""')}"`;
+}
 
 const MAP_LABELS = [
   { name: "SOMALIA", lat: 9, lon: 47.5, kind: "country" },
@@ -447,9 +472,14 @@ function App() {
   const [loadingCoverage, setLoadingCoverage] = useState(true);
   const [loadingMap, setLoadingMap] = useState(false);
   const [loadingProfile, setLoadingProfile] = useState(false);
+  const [exportPeriod, setExportPeriod] = useState<ExportPeriod>("7d");
+  const [exporting, setExporting] = useState(false);
+  const [exportStatus, setExportStatus] = useState("");
+  const [exportError, setExportError] = useState("");
   const [error, setError] = useState("");
   const [profileError, setProfileError] = useState("");
   const profileRequest = useRef<AbortController | null>(null);
+  const exportRequest = useRef<AbortController | null>(null);
   const hasDate = useMemo(
     () => Boolean(date && coverage && date >= coverage.earliest && date <= coverage.latest),
     [coverage, date],
@@ -550,6 +580,79 @@ function App() {
     [date, hasDate],
   );
 
+  const handleExport = useCallback(async () => {
+    if (!coverage || exporting) return;
+
+    const startDate = getExportStartDate(coverage.latest, exportPeriod);
+    const boundedStartDate = startDate < coverage.earliest ? coverage.earliest : startDate;
+    const controller = new AbortController();
+    exportRequest.current = controller;
+    setExporting(true);
+    setExportError("");
+    setExportStatus("Preparing CSV…");
+    const csvParts = [
+      [
+        "date",
+        "latitude",
+        "longitude",
+        ...DEPTHS.map((depth) => `temperature_${depth}m_c`),
+      ].map(csvField).join(",") + "\r\n",
+    ];
+    let rowCount = 0;
+    let after: ExportCursor | null = null;
+
+    try {
+      while (true) {
+        const page = await getExportPage(boundedStartDate, coverage.latest, after, controller.signal);
+        if (controller.signal.aborted) {
+          setExportStatus("Download cancelled.");
+          return;
+        }
+        for (const row of page.rows) {
+          csvParts.push(
+            [
+              row.date,
+              String(row.lat),
+              String(row.lon),
+              ...DEPTHS.map((depth) => row.depths[depth] === null ? "" : String(row.depths[depth])),
+            ].map(csvField).join(",") + "\r\n",
+          );
+        }
+        rowCount += page.rows.length;
+        setExportStatus(`Preparing CSV… ${rowCount.toLocaleString()} rows`);
+        if (page.rows.length < EXPORT_PAGE_SIZE) break;
+        const lastRow = page.rows[page.rows.length - 1];
+        after = { date: lastRow.date, lat: lastRow.lat, lon: lastRow.lon };
+      }
+
+      if (rowCount === 0) {
+        setExportStatus(`No temperature rows are available from ${boundedStartDate} through ${coverage.latest}.`);
+        return;
+      }
+
+      const blob = new Blob(["\uFEFF", ...csvParts], { type: "text/csv;charset=utf-8" });
+      const url = URL.createObjectURL(blob);
+      const link = document.createElement("a");
+      link.href = url;
+      link.download = `oceanembed-temperatures-${boundedStartDate}-to-${coverage.latest}.csv`;
+      document.body.append(link);
+      link.click();
+      link.remove();
+      window.setTimeout(() => URL.revokeObjectURL(url), 0);
+      setExportStatus(`Downloaded ${rowCount.toLocaleString()} rows (${boundedStartDate} to ${coverage.latest}).`);
+    } catch (reason) {
+      if (controller.signal.aborted) {
+        setExportStatus("Download cancelled.");
+      } else {
+        setExportError(reason instanceof Error ? reason.message : "Unable to download the selected temperature data.");
+        setExportStatus("");
+      }
+    } finally {
+      if (exportRequest.current === controller) exportRequest.current = null;
+      setExporting(false);
+    }
+  }, [coverage, exportPeriod, exporting]);
+
   useEffect(() => {
     profileRequest.current?.abort();
     profileRequest.current = null;
@@ -561,6 +664,7 @@ function App() {
   useEffect(
     () => () => {
       profileRequest.current?.abort();
+      exportRequest.current?.abort();
     },
     [],
   );
@@ -636,6 +740,48 @@ function App() {
         <div className="control-spacer" />
         <div className="region-label"><span className="region-dot" /> 5°–30°N <span className="region-slash">/</span> 45°–105°E</div>
       </section>
+
+      <section className="download-section" aria-label="Download gridded temperature data">
+        <div className="download-description">
+          <strong>Download gridded data</strong>
+          <span>All available grid cells · 15 depths · °C · through {coverage?.latest ?? "latest data date"}</span>
+        </div>
+        <label className="download-period">
+          <span className="control-label">TIME RANGE</span>
+          <select
+            value={exportPeriod}
+            onChange={(event) => {
+              if (isExportPeriod(event.target.value)) setExportPeriod(event.target.value);
+            }}
+            disabled={loadingCoverage || !coverage || exporting}
+            aria-label="Download time range"
+          >
+            <option value="7d">Last 7 days</option>
+            <option value="14d">Last 14 days</option>
+            <option value="1m">Last month</option>
+            <option value="3m">Last 3 months</option>
+          </select>
+        </label>
+        <button
+          className="download-button"
+          type="button"
+          onClick={() => void handleExport()}
+          disabled={loadingCoverage || !coverage || exporting}
+        >
+          {exporting ? "Preparing…" : "Download CSV"}
+        </button>
+        {exporting && (
+          <button
+            className="download-cancel"
+            type="button"
+            onClick={() => exportRequest.current?.abort()}
+          >
+            Cancel
+          </button>
+        )}
+      </section>
+      {exportStatus && <div className="download-status" role="status" aria-live="polite">{exportStatus}</div>}
+      {exportError && <div className="error-banner" role="alert"><strong>Download failed</strong><span>{exportError}</span></div>}
 
       {error && <div className="error-banner" role="alert"><strong>Data request failed</strong><span>{error}</span></div>}
       {date && coverage && !hasDate && (

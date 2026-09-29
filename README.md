@@ -20,6 +20,8 @@ The browser calls a Cloudflare Worker proxy, which invokes narrowly scoped Supab
 
 2. Run [`supabase/migrations/20260927000000_oceanembed_frontend.sql`](./supabase/migrations/20260927000000_oceanembed_frontend.sql) in the Supabase SQL Editor. It adds date-first indexing, read-only RPC functions, and row-level policies for the dashboard to read all dates in `public.temperatures`. The expected columns are `date`, `lat`, `lon`, and `d0`, `d5`, `d10`, `d20`, `d30`, `d50`, `d75`, `d100`, `d125`, `d150`, `d200`, `d300`, `d500`, `d700`, and `d1000`.
 
+   Also run [`supabase/migrations/20260929000000_oceanembed_export.sql`](./supabase/migrations/20260929000000_oceanembed_export.sql) to enable paginated CSV downloads of up to three months of gridded temperatures.
+
 3. Copy `.dev.vars.example` to `.dev.vars` and set `SUPABASE_ANON_KEY` to the project's anon key. Do not use the service-role key. `.dev.vars` is ignored by Git.
 
 4. In one terminal, run the Worker:
