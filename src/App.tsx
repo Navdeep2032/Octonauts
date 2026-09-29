@@ -1,12 +1,13 @@
 import { useCallback, useEffect, useMemo, useRef, useState } from "react";
 import {
   CartesianGrid,
-  Line,
-  LineChart,
   ResponsiveContainer,
+  Scatter,
+  ScatterChart,
   Tooltip,
   XAxis,
   YAxis,
+  type TooltipContentProps,
 } from "recharts";
 import { divIcon } from "leaflet";
 import {
@@ -49,6 +50,39 @@ const MAP_LABELS = [
 interface GradientRow {
   depth: number;
   gradient: number;
+  value: number;
+  unit: string;
+}
+
+interface ChartTooltipPoint {
+  depth: number;
+  value: number;
+  unit: string;
+}
+
+function isChartTooltipPoint(value: unknown): value is ChartTooltipPoint {
+  return (
+    typeof value === "object" &&
+    value !== null &&
+    "depth" in value &&
+    typeof value.depth === "number" &&
+    "value" in value &&
+    typeof value.value === "number" &&
+    "unit" in value &&
+    typeof value.unit === "string"
+  );
+}
+
+function ChartTooltip({ active, payload }: TooltipContentProps) {
+  const point = payload[0]?.payload;
+  if (!active || !isChartTooltipPoint(point)) return null;
+
+  return (
+    <div className="chart-tooltip">
+      <strong>{point.depth.toFixed(1)} m depth</strong>
+      <span>{point.value.toFixed(3)} {point.unit}</span>
+    </div>
+  );
 }
 
 function temperatureColor(value: number, minimum: number, maximum: number): string {
@@ -210,13 +244,21 @@ function TemperatureMap({
 }
 
 function TemperatureChart({ profile }: { profile: Profile }) {
-  const temperatureRows = DEPTHS.map((depth) => ({ depth, temperature: profile.depths[depth] }));
+  const temperatureRows = DEPTHS.map((depth) => ({
+    depth,
+    temperature: profile.depths[depth],
+    value: profile.depths[depth],
+    unit: "°C",
+  }));
   const gradientRows: GradientRow[] = DEPTHS.slice(0, -1).map((depth, index) => {
     const nextDepth = DEPTHS[index + 1];
     const temperatureChange = profile.depths[nextDepth] - profile.depths[depth];
+    const gradient = (temperatureChange / (nextDepth - depth)) * 100;
     return {
       depth: (depth + nextDepth) / 2,
-      gradient: (temperatureChange / (nextDepth - depth)) * 100,
+      gradient,
+      value: gradient,
+      unit: "°C / 100 m",
     };
   });
 
@@ -232,7 +274,7 @@ function TemperatureChart({ profile }: { profile: Profile }) {
         </div>
         <div className="chart">
           <ResponsiveContainer width="100%" height="100%">
-            <LineChart data={temperatureRows} margin={{ top: 12, right: 22, left: 2, bottom: 8 }}>
+            <ScatterChart margin={{ top: 12, right: 22, left: 2, bottom: 8 }}>
               <CartesianGrid stroke="#e9efed" strokeDasharray="3 5" />
               <XAxis
                 type="number"
@@ -242,6 +284,7 @@ function TemperatureChart({ profile }: { profile: Profile }) {
                 tickLine={false}
                 axisLine={false}
                 label={{ value: "Temperature (°C)", position: "insideBottom", offset: -2, fill: "#788784", fontSize: 11 }}
+                name="Temperature"
               />
               <YAxis
                 type="number"
@@ -253,14 +296,19 @@ function TemperatureChart({ profile }: { profile: Profile }) {
                 tickLine={false}
                 axisLine={false}
                 label={{ value: "Depth (m)", angle: -90, position: "insideLeft", fill: "#788784", fontSize: 11 }}
+                name="Depth"
               />
-              <Tooltip
-                formatter={(value) => [`${Number(value).toFixed(2)} °C`, "Temperature"]}
-                labelFormatter={(label) => `${label} m depth`}
-                contentStyle={{ border: "1px solid #e6eeeb", borderRadius: 10, fontSize: 12 }}
+              <Tooltip content={ChartTooltip} />
+              <Scatter
+                data={temperatureRows}
+                dataKey="temperature"
+                fill="#137c78"
+                line={{ stroke: "#137c78", strokeWidth: 2.5 }}
+                lineType="joint"
+                name="Temperature"
+                shape="circle"
               />
-              <Line type="monotone" dataKey="temperature" stroke="#137c78" strokeWidth={2.5} dot={{ r: 3.5, fill: "#137c78" }} activeDot={{ r: 5 }} />
-            </LineChart>
+            </ScatterChart>
           </ResponsiveContainer>
         </div>
       </section>
@@ -275,7 +323,7 @@ function TemperatureChart({ profile }: { profile: Profile }) {
         </div>
         <div className="chart">
           <ResponsiveContainer width="100%" height="100%">
-            <LineChart data={gradientRows} margin={{ top: 12, right: 22, left: 2, bottom: 8 }}>
+            <ScatterChart margin={{ top: 12, right: 22, left: 2, bottom: 8 }}>
               <CartesianGrid stroke="#e9efed" strokeDasharray="3 5" />
               <XAxis
                 type="number"
@@ -285,6 +333,7 @@ function TemperatureChart({ profile }: { profile: Profile }) {
                 tickLine={false}
                 axisLine={false}
                 label={{ value: "°C / 100 m", position: "insideBottom", offset: -2, fill: "#788784", fontSize: 11 }}
+                name="Temperature gradient"
               />
               <YAxis
                 type="number"
@@ -296,14 +345,19 @@ function TemperatureChart({ profile }: { profile: Profile }) {
                 tickLine={false}
                 axisLine={false}
                 label={{ value: "Depth (m)", angle: -90, position: "insideLeft", fill: "#788784", fontSize: 11 }}
+                name="Depth"
               />
-              <Tooltip
-                formatter={(value) => [`${Number(value).toFixed(3)} °C / 100 m`, "Gradient"]}
-                labelFormatter={(label) => `${Number(label).toFixed(1)} m midpoint`}
-                contentStyle={{ border: "1px solid #e6eeeb", borderRadius: 10, fontSize: 12 }}
+              <Tooltip content={ChartTooltip} />
+              <Scatter
+                data={gradientRows}
+                dataKey="gradient"
+                fill="#db8b50"
+                line={{ stroke: "#db8b50", strokeWidth: 2.5 }}
+                lineType="joint"
+                name="Gradient"
+                shape="circle"
               />
-              <Line type="monotone" dataKey="gradient" stroke="#db8b50" strokeWidth={2.5} dot={{ r: 3.5, fill: "#db8b50" }} activeDot={{ r: 5 }} />
-            </LineChart>
+            </ScatterChart>
           </ResponsiveContainer>
         </div>
       </section>
