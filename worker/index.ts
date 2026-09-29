@@ -1,8 +1,6 @@
 const DEPTHS = [0, 5, 10, 20, 30, 50, 75, 100, 125, 150, 200, 300, 500, 700, 1000] as const;
 const DATE_PATTERN = /^\d{4}-\d{2}-\d{2}$/;
 const MAX_MAP_POINTS = 1800;
-const DATA_START_DATE = "2026-03-01";
-const DATA_END_DATE = "2026-09-01";
 
 interface Env {
   SUPABASE_URL: string;
@@ -49,8 +47,8 @@ function numberField(value: unknown, label: string): number {
 }
 
 function requireDataDate(value: unknown): asserts value is string {
-  if (!isDate(value) || value < DATA_START_DATE || value >= DATA_END_DATE) {
-    throw new HttpError(400, "Select a prediction date from March 1 through August 31, 2026.");
+  if (!isDate(value)) {
+    throw new HttpError(400, "Select a valid prediction date.");
   }
 }
 
@@ -138,22 +136,13 @@ async function handleRequest(request: Request, env: Env): Promise<Response> {
       const coverage = await callSupabase(env, "oceanembed_coverage", {});
       if (
         !isRecord(coverage) ||
-        !Array.isArray(coverage.dates) ||
-        coverage.dates.length === 0 ||
-        !coverage.dates.every((date) => isDate(date) && date >= DATA_START_DATE && date < DATA_END_DATE)
+        !isDate(coverage.earliest) ||
+        !isDate(coverage.latest) ||
+        coverage.earliest > coverage.latest
       ) {
-        throw new Error("Supabase contains no valid temperature dates from March through August 2026.");
+        throw new Error("Supabase returned invalid temperature date coverage.");
       }
-      const dates = coverage.dates as string[];
-      if (
-        typeof coverage.earliest !== "string" ||
-        typeof coverage.latest !== "string" ||
-        coverage.earliest !== dates[0] ||
-        coverage.latest !== dates[dates.length - 1]
-      ) {
-        throw new Error("Supabase returned inconsistent temperature date coverage.");
-      }
-      return json({ success: true, data: { dates, earliest: coverage.earliest, latest: coverage.latest } });
+      return json({ success: true, data: { earliest: coverage.earliest, latest: coverage.latest } });
     }
 
     if (body.action === "map") {
@@ -204,8 +193,6 @@ async function handleRequest(request: Request, env: Env): Promise<Response> {
         !isRecord(profile.depths) ||
         typeof profile.date !== "string" ||
         !isDate(profile.date) ||
-        profile.date < DATA_START_DATE ||
-        profile.date >= DATA_END_DATE ||
         !isFiniteNumber(profile.lat) ||
         !isFiniteNumber(profile.lon)
       ) {

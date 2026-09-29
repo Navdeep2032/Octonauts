@@ -3,7 +3,6 @@ export const DEPTHS = [0, 5, 10, 20, 30, 50, 75, 100, 125, 150, 200, 300, 500, 7
 export type Depth = (typeof DEPTHS)[number];
 
 export interface Coverage {
-  dates: string[];
   earliest: string;
   latest: string;
 }

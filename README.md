@@ -6,7 +6,7 @@ The model ingests a multi-source, multi-day surface signal and predicts temperat
 
 ## Ocean temperature explorer
 
-The React dashboard explores the daily ensemble outputs stored in the Supabase `public.temperatures` table. The date selector is populated from dates available in the six-month window from March 1 through August 31, 2026. Pan and zoom the map to inspect a region, select a model depth to color its grid cells, and click a cell to display its 15-level temperature profile and frontend-calculated temperature gradient.
+The React dashboard explores the daily ensemble outputs stored in the Supabase `public.temperatures` table. The date selector spans the earliest through latest dates in that table; days without rows show no map data. Pan and zoom the map to inspect a region, select a model depth to color its grid cells, and click a cell to display its 15-level temperature profile and frontend-calculated temperature gradient.
 
 The browser calls a Cloudflare Worker proxy, which invokes narrowly scoped Supabase RPC functions. Configure the Supabase anon key as a Worker secret; never use the service-role key or put either key in the frontend bundle.
 
@@ -18,7 +18,7 @@ The browser calls a Cloudflare Worker proxy, which invokes narrowly scoped Supab
    npm install
    ```
 
-2. Run [`supabase/migrations/20260927000000_oceanembed_frontend.sql`](./supabase/migrations/20260927000000_oceanembed_frontend.sql) in the Supabase SQL Editor. It adds date-first indexing, read-only RPC functions, and row-level policies limited to March–August 2026.
+2. Run [`supabase/migrations/20260927000000_oceanembed_frontend.sql`](./supabase/migrations/20260927000000_oceanembed_frontend.sql) in the Supabase SQL Editor. It adds date-first indexing, read-only RPC functions, and row-level policies for the dashboard to read all dates in `public.temperatures`. The expected columns are `date`, `lat`, `lon`, and `d0`, `d5`, `d10`, `d20`, `d30`, `d50`, `d75`, `d100`, `d125`, `d150`, `d200`, `d300`, `d500`, `d700`, and `d1000`.
 
 3. Copy `.dev.vars.example` to `.dev.vars` and set `SUPABASE_ANON_KEY` to the project's anon key. Do not use the service-role key. `.dev.vars` is ignored by Git.
 
@@ -36,11 +36,13 @@ The browser calls a Cloudflare Worker proxy, which invokes narrowly scoped Supab
 
 ### Deploy the data proxy
 
-Set the Supabase anon key as a Worker secret before deploying:
+The deployed Worker needs its own Supabase anon key secret. A local `.dev.vars` file is only used by `wrangler dev` and does not configure the production Worker. From this repository, set the secret on the Cloudflare account where the Worker is deployed:
 
 ```bash
 npx wrangler secret put SUPABASE_ANON_KEY
 ```
+
+When prompted, paste the Supabase project's **anon/publishable key** (not its service-role/secret key). If the Worker is managed in the Cloudflare dashboard instead, open **Workers & Pages → oceanembed-data-proxy → Settings → Variables and Secrets**, add `SUPABASE_ANON_KEY` as an encrypted secret, and save.
 
 Then build and deploy:
 
@@ -49,9 +51,17 @@ npm ci
 npm run deploy
 ```
 
+If deploying through Cloudflare's Git integration, add the secret under the Worker settings there and trigger a new deployment after saving it. To confirm the secret is configured from the CLI, run `npx wrangler secret list`; it lists secret names, not their values. The website can continue using the same-origin `/api/ocean-query` endpoint when the Worker also serves the built frontend.
+
 For a Cloudflare Workers Git deployment, use `npm ci` as the install command and `npm run build` as the build command. Set the deploy command to `npx wrangler deploy` and the build output directory to `dist`. Wrangler serves the built single-page app through the `ASSETS` binding and routes `/api/ocean-query` to Supabase.
 
 For a separately hosted frontend, set `VITE_OCEAN_API_URL` to the deployed Worker URL before building. When the frontend and Worker share an origin, the default `/api/ocean-query` URL can be used.
+
+### Use a cleaner URL
+
+The `*.workers.dev` address is Cloudflare's default development hostname. To use a branded address such as `api.example.com`, you need to own a domain managed by Cloudflare. In **Workers & Pages → oceanembed-data-proxy → Settings → Domains & Routes**, choose **Add → Custom Domain** and enter a hostname on that domain. Cloudflare will provision HTTPS and route that hostname to the Worker. Use the custom hostname for a separately hosted frontend's `VITE_OCEAN_API_URL`; if the Worker serves the frontend too, its same-origin `/api/ocean-query` path still works.
+
+Without a domain you control, you cannot choose a custom hostname for the Worker. The `workers.dev` address can still be used as-is.
 
 ## Main objective
 
