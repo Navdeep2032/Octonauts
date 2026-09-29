@@ -1,9 +1,6 @@
-import { useCallback, useEffect, useMemo, useRef, useState, type CSSProperties } from "react";
+import { useCallback, useEffect, useMemo, useRef, useState } from "react";
 import {
   CartesianGrid,
-  Legend,
-  Line,
-  LineChart,
   ResponsiveContainer,
   Scatter,
   ScatterChart,
@@ -23,12 +20,11 @@ import {
   useMap,
   useMapEvents,
 } from "react-leaflet";
-import { getCoverage, getHistory, getMapPoints, getProfile } from "./api";
+import { getCoverage, getMapPoints, getProfile } from "./api";
 import {
   DEPTHS,
   type Coverage,
   type Depth,
-  type HistoryPoint,
   type MapBounds,
   type MapPoint,
   type Profile,
@@ -70,19 +66,6 @@ interface ChartTooltipPoint {
   value: number;
   unit: string;
 }
-
-type HistoryWindow = 7 | 14 | 30;
-
-interface HistoryChartRow extends Record<string, string | number> {
-  date: string;
-}
-
-const HISTORY_WINDOWS: HistoryWindow[] = [7, 14, 30];
-const HISTORY_COLORS = [
-  "#137c78", "#db8b50", "#4778a8", "#9b6bb0", "#c45b68",
-  "#4f9b65", "#bd8a2d", "#507f91", "#cf6c3e", "#6876b5",
-  "#459b9b", "#a45c82", "#81943f", "#6f6b63", "#3c6d9c",
-];
 
 function isChartTooltipPoint(value: unknown): value is ChartTooltipPoint {
   return (
@@ -389,155 +372,6 @@ function TemperatureChart({ profile }: { profile: Profile }) {
   );
 }
 
-function HistoryChart({
-  profile,
-  date,
-  days,
-  depths,
-  rows,
-  loading,
-  error,
-  onDaysChange,
-  onDepthToggle,
-}: {
-  profile: Profile | null;
-  date: string;
-  days: HistoryWindow;
-  depths: Depth[];
-  rows: HistoryChartRow[];
-  loading: boolean;
-  error: string;
-  onDaysChange: (days: HistoryWindow) => void;
-  onDepthToggle: (depth: Depth) => void;
-}) {
-  const startDate = useMemo(() => {
-    if (!date) return "";
-    const start = new Date(`${date}T00:00:00.000Z`);
-    start.setUTCDate(start.getUTCDate() - days + 1);
-    return start.toISOString().slice(0, 10);
-  }, [date, days]);
-
-  return (
-    <section className="history-section">
-      <div className="history-heading">
-        <div>
-          <div className="eyebrow">TIME SERIES</div>
-          <h2>Surface-to-layer history</h2>
-          <p>
-            {profile
-              ? `${profile.lat.toFixed(2)}°N, ${profile.lon.toFixed(2)}°E · ${startDate} to ${date}`
-              : "Select a map point to view its temperature history."}
-          </p>
-        </div>
-        <div className="history-windows" role="group" aria-label="History time range">
-          {HISTORY_WINDOWS.map((windowDays) => (
-            <button
-              type="button"
-              key={windowDays}
-              className={`history-window ${days === windowDays ? "selected" : ""}`}
-              aria-pressed={days === windowDays}
-              onClick={() => onDaysChange(windowDays)}
-            >
-              Last {windowDays} days
-            </button>
-          ))}
-        </div>
-      </div>
-
-      <div className="history-depths" role="group" aria-label="Temperature depths">
-        <span className="control-label">COMPARE DEPTHS · SELECT ONE OR MORE</span>
-        <div className="depth-chips">
-          {DEPTHS.map((level, index) => {
-            const selected = depths.includes(level);
-            return (
-              <button
-                type="button"
-                key={level}
-                className={`depth-chip ${selected ? "selected" : ""}`}
-                aria-pressed={selected}
-                style={{ "--depth-color": HISTORY_COLORS[index] } as CSSProperties}
-                onClick={() => onDepthToggle(level)}
-              >
-                {level} m
-              </button>
-            );
-          })}
-        </div>
-      </div>
-
-      {error && <div className="error-banner history-error" role="alert"><strong>History request failed</strong><span>{error}</span></div>}
-      {!profile ? (
-        <div className="empty-profile history-empty">
-          <div className="empty-profile-mark">↗</div>
-          <span>Select an ocean grid point on the map to compare its depth temperatures over time.</span>
-        </div>
-      ) : (
-        <div className="history-card">
-          <div className="history-chart-heading">
-            <div>
-              <h3>Temperature over time</h3>
-              <p>{depths.length} selected {depths.length === 1 ? "layer" : "layers"} · °C</p>
-            </div>
-            <span className="chart-unit">{loading ? "Loading…" : `${rows.length} observations`}</span>
-          </div>
-          {loading ? (
-            <div className="history-chart-placeholder" role="status">Loading temperature history…</div>
-          ) : rows.length === 0 ? (
-            <div className="history-chart-placeholder">No data for this location in the selected date range.</div>
-          ) : (
-            <div className="history-chart">
-              <ResponsiveContainer width="100%" height="100%">
-                <LineChart data={rows} margin={{ top: 14, right: 20, left: 4, bottom: 12 }}>
-                  <CartesianGrid stroke="#e9efed" strokeDasharray="3 5" />
-                  <XAxis
-                    dataKey="date"
-                    type="category"
-                    tick={{ fill: "#788784", fontSize: 10 }}
-                    tickLine={false}
-                    axisLine={false}
-                    minTickGap={24}
-                  />
-                  <YAxis
-                    type="number"
-                    domain={["auto", "auto"]}
-                    tick={{ fill: "#788784", fontSize: 10 }}
-                    tickLine={false}
-                    axisLine={false}
-                    width={48}
-                    label={{ value: "Temperature (°C)", angle: -90, position: "insideLeft", fill: "#788784", fontSize: 10 }}
-                  />
-                  <Tooltip
-                    labelFormatter={(label) => String(label)}
-                    formatter={(value, name) => [`${Number(value).toFixed(2)} °C`, `${String(name)} m`]}
-                    contentStyle={{ border: "1px solid #e6eeeb", borderRadius: 10, fontSize: 12 }}
-                  />
-                  <Legend formatter={(label) => `${label} m`} />
-                  {depths.map((level) => {
-                    const color = HISTORY_COLORS[DEPTHS.indexOf(level)];
-                    return (
-                      <Line
-                        key={level}
-                        type="monotone"
-                        dataKey={`d${level}`}
-                        name={String(level)}
-                        stroke={color}
-                        strokeWidth={2}
-                        dot={{ r: 3, fill: color }}
-                        activeDot={{ r: 5 }}
-                        connectNulls={false}
-                      />
-                    );
-                  })}
-                </LineChart>
-              </ResponsiveContainer>
-            </div>
-          )}
-        </div>
-      )}
-    </section>
-  );
-}
-
 function App() {
   const [coverage, setCoverage] = useState<Coverage | null>(null);
   const [date, setDate] = useState("");
@@ -546,11 +380,6 @@ function App() {
   const [points, setPoints] = useState<MapPoint[]>([]);
   const [mapStride, setMapStride] = useState(1);
   const [profile, setProfile] = useState<Profile | null>(null);
-  const [historyDays, setHistoryDays] = useState<HistoryWindow>(7);
-  const [historyDepths, setHistoryDepths] = useState<Depth[]>([50]);
-  const [history, setHistory] = useState<HistoryPoint[]>([]);
-  const [loadingHistory, setLoadingHistory] = useState(false);
-  const [historyError, setHistoryError] = useState("");
   const [loadingCoverage, setLoadingCoverage] = useState(true);
   const [loadingMap, setLoadingMap] = useState(false);
   const [loadingProfile, setLoadingProfile] = useState(false);
@@ -664,51 +493,6 @@ function App() {
     setProfile(null);
     setProfileError("");
   }, [date]);
-
-  useEffect(() => {
-    if (!profile) {
-      setHistory([]);
-      setHistoryError("");
-      setLoadingHistory(false);
-      return;
-    }
-
-    const controller = new AbortController();
-    setLoadingHistory(true);
-    setHistoryError("");
-    getHistory(date, historyDays, profile.lat, profile.lon, controller.signal)
-      .then((result) => {
-        if (!controller.signal.aborted) setHistory(result);
-      })
-      .catch((reason: unknown) => {
-        if (!controller.signal.aborted) {
-          setHistoryError(reason instanceof Error ? reason.message : "Unable to load temperature history.");
-          setHistory([]);
-        }
-      })
-      .finally(() => {
-        if (!controller.signal.aborted) setLoadingHistory(false);
-      });
-    return () => controller.abort();
-  }, [date, historyDays, profile]);
-
-  const historyRows = useMemo<HistoryChartRow[]>(
-    () =>
-      history.map((point) => ({
-        date: point.date,
-        ...Object.fromEntries(DEPTHS.map((level) => [`d${level}`, point.depths[level]])),
-      })),
-    [history],
-  );
-
-  const toggleHistoryDepth = useCallback((selectedDepth: Depth) => {
-    setHistoryDepths((selected) => {
-      if (selected.includes(selectedDepth)) {
-        return selected.length > 1 ? selected.filter((level) => level !== selectedDepth) : selected;
-      }
-      return [...selected, selectedDepth].sort((a, b) => a - b);
-    });
-  }, []);
 
   useEffect(
     () => () => {
@@ -840,18 +624,6 @@ function App() {
           </div>
         )}
       </section>
-
-      <HistoryChart
-        profile={profile}
-        date={date}
-        days={historyDays}
-        depths={historyDepths}
-        rows={historyRows}
-        loading={loadingHistory}
-        error={historyError}
-        onDaysChange={setHistoryDays}
-        onDepthToggle={toggleHistoryDepth}
-      />
 
       <footer className="footer">
         <span>OCEANEMBED <span className="footer-separator">·</span> SUBSURFACE TEMPERATURE EXPLORER</span>

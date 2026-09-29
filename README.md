@@ -6,7 +6,7 @@ The model ingests a multi-source, multi-day surface signal and predicts temperat
 
 ## Ocean temperature explorer
 
-The React dashboard explores the daily ensemble outputs stored in the Supabase `public.temperatures` table. The date selector spans the earliest through latest dates in that table; days without rows show no map data. Pan and zoom the map to inspect a region, select a model depth to color its grid cells, and click a cell to display its 15-level temperature profile, frontend-calculated temperature gradient, and a history chart with selectable depths and 7-, 14-, or 30-day windows.
+The React dashboard explores the daily ensemble outputs stored in the Supabase `public.temperatures` table. The date selector spans the earliest through latest dates in that table; days without rows show no map data. Pan and zoom the map to inspect a region, select a model depth to color its grid cells, and click a cell to display its 15-level temperature profile and frontend-calculated temperature gradient.
 
 The browser calls a Cloudflare Worker proxy, which invokes narrowly scoped Supabase RPC functions. Configure the Supabase anon key as a Worker secret; never use the service-role key or put either key in the frontend bundle.
 
@@ -18,7 +18,7 @@ The browser calls a Cloudflare Worker proxy, which invokes narrowly scoped Supab
    npm install
    ```
 
-2. Run [`supabase/migrations/20260927000000_oceanembed_frontend.sql`](./supabase/migrations/20260927000000_oceanembed_frontend.sql) in the Supabase SQL Editor. It adds date-first indexing, read-only RPC functions (including a bounded daily history query), and row-level policies for the dashboard to read all dates in `public.temperatures`. The expected columns are `date`, `lat`, `lon`, and `d0`, `d5`, `d10`, `d20`, `d30`, `d50`, `d75`, `d100`, `d125`, `d150`, `d200`, `d300`, `d500`, `d700`, and `d1000`.
+2. Run [`supabase/migrations/20260927000000_oceanembed_frontend.sql`](./supabase/migrations/20260927000000_oceanembed_frontend.sql) in the Supabase SQL Editor. It adds date-first indexing, read-only RPC functions, and row-level policies for the dashboard to read all dates in `public.temperatures`. The expected columns are `date`, `lat`, `lon`, and `d0`, `d5`, `d10`, `d20`, `d30`, `d50`, `d75`, `d100`, `d125`, `d150`, `d200`, `d300`, `d500`, `d700`, and `d1000`.
 
 3. Copy `.dev.vars.example` to `.dev.vars` and set `SUPABASE_ANON_KEY` to the project's anon key. Do not use the service-role key. `.dev.vars` is ignored by Git.
 

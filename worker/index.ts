@@ -210,43 +210,7 @@ async function handleRequest(request: Request, env: Env): Promise<Response> {
       });
     }
 
-    if (body.action === "history") {
-      requireDataDate(body.date);
-      if (body.days !== 7 && body.days !== 14 && body.days !== 30) {
-        throw new HttpError(400, "Select a history window of 7, 14, or 30 days.");
-      }
-      const lat = numberField(body.lat, "Latitude");
-      const lon = numberField(body.lon, "Longitude");
-      if (lat < 5 || lat > 30 || lon < 45 || lon > 105) {
-        throw new HttpError(400, "The selected coordinate is outside the North Indian Ocean data domain.");
-      }
-
-      const history = await callSupabase(env, "oceanembed_history", {
-        p_end_date: body.date,
-        p_days: body.days,
-        p_lat: lat,
-        p_lon: lon,
-      });
-      if (!Array.isArray(history)) throw new Error("Supabase returned an invalid temperature history.");
-      const rows = history.map((row) => {
-        if (!isRecord(row) || !isDate(row.date) || !isRecord(row.depths)) {
-          throw new Error("Supabase returned an invalid temperature history row.");
-        }
-        const depths = {} as Record<(typeof DEPTHS)[number], number>;
-        for (const depth of DEPTHS) {
-          const value = row.depths[String(depth)];
-          if (!isFiniteNumber(value)) throw new Error(`Supabase returned an invalid history temperature at ${depth} m.`);
-          depths[depth] = value;
-        }
-        return { date: row.date, depths };
-      });
-      if (rows.some((row, index) => index > 0 && rows[index - 1].date >= row.date)) {
-        throw new Error("Supabase returned unsorted temperature history.");
-      }
-      return json({ success: true, data: rows });
-    }
-
-    throw new HttpError(400, "Supported actions are coverage, map, profile, and history.");
+    throw new HttpError(400, "Supported actions are coverage, map, and profile.");
   } catch (error) {
     const status = error instanceof HttpError ? error.status : 502;
     const message = error instanceof Error ? error.message : "Ocean data request failed.";
