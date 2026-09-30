@@ -3,7 +3,7 @@
 :root {
   font-family: "DM Sans", sans-serif;
   color: #203532;
-  background: #CBDEEF;
+  background: #E7F3F8;
   font-synthesis: none;
   text-rendering: optimizeLegibility;
   -webkit-font-smoothing: antialiased;
@@ -18,11 +18,8 @@ button, input, select { font: inherit; }
 
 .app-shell { width: min(1240px, calc(100% - 64px)); margin: 0 auto; }
 .topbar { height: 72px; display: flex; align-items: center; justify-content: space-between; border-bottom: 1px solid #e5ece9; }
-.brand { display: inline-flex; align-items: center; gap: 10px; color: inherit; text-decoration: none; }
-.brand-mark { display: grid; width: 30px; height: 30px; place-items: center; border-radius: 9px; background: #157d78; }
-.brand-mark span { width: 15px; height: 9px; border-radius: 100% 10% 100% 10%; background: #fff; transform: rotate(-16deg); }
-.brand-name { font: 800 17px Manrope, sans-serif; letter-spacing: -0.7px; }
-.brand-name span { color: #198880; }
+.brand { display: inline-flex; align-items: center; color: inherit; text-decoration: none; }
+.brand-logo { display: block; width: 62px; height: 62px; object-fit: contain; }
 .topbar-meta { display: flex; align-items: center; gap: 9px; color: #62726f; font-size: 12px; font-weight: 500; }
 .live-dot, .coverage-indicator, .region-dot, .count-pulse { display: inline-block; flex: none; width: 7px; height: 7px; border-radius: 50%; background: #39a889; }
 .meta-divider { width: 1px; height: 14px; margin: 0 5px; background: #d8e2de; }
@@ -127,6 +124,7 @@ h1 { margin-bottom: 7px; font-size: clamp(36px, 4.5vw, 52px); font-weight: 700; 
 @media (max-width: 760px) {
   .app-shell { width: min(100% - 32px, 600px); }
   .topbar { height: 62px; }
+  .brand-logo { width: 54px; height: 54px; }
   .topbar-meta { gap: 7px; font-size: 10px; }
   .page-heading { align-items: flex-start; flex-direction: column; gap: 16px; padding: 29px 0 20px; }
   .coverage-badge { margin: 0; }

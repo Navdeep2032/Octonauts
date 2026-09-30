@@ -30,6 +30,7 @@ import {
   type MapPoint,
   type Profile,
 } from "./types";
+import oceanEmbedLogo from "./assets/oceanembed-logo.png";
 
 const DOMAIN = { south: 5, north: 30, west: 45, east: 105 } as const;
 const INITIAL_BOUNDS: MapBounds = DOMAIN;
@@ -673,8 +674,7 @@ function App() {
     <main className="app-shell">
       <header className="topbar">
         <a className="brand" href="/" aria-label="OceanEmbed home">
-          <span className="brand-mark"><span /></span>
-          <span className="brand-name">ocean<span>embed</span></span>
+          <img className="brand-logo" src={oceanEmbedLogo} alt="" />
         </a>
         <div className="topbar-meta">
           <span className="live-dot" />
