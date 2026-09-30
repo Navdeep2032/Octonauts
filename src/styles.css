@@ -109,13 +109,13 @@ h1 { margin-bottom: 7px; font-size: clamp(36px, 4.5vw, 52px); font-weight: 700; 
 .chart { width: 100%; height: 360px; }
 .chart-tooltip { display: grid; gap: 5px; padding: 9px 11px; border: 1px solid #e6eeeb; border-radius: 10px; background: #fff; color: #3e5c55; font-size: 12px; box-shadow: 0 4px 16px rgb(30 60 50 / 10%); }
 .chart-tooltip span { color: #137c78; }
-.chart-key-data { align-self: stretch; padding: 15px 14px; border: 1px solid #163346; border-top: 2px solid var(--metric-accent); border-radius: 7px; background: #081522; color: #e8f2f5; }
-.chart-key-data h4 { margin: 0; padding-bottom: 10px; border-bottom: 1px solid #193044; color: #6de5df; font-size: 15px; font-weight: 700; letter-spacing: 1.6px; }
+.chart-key-data { align-self: stretch; padding: 15px 14px; border: 1px solid #163346; border-top: 2px solid var(--metric-accent); border-radius: 7px; background: rgb(8 21 34 / 30%); color: #fff; }
+.chart-key-data h4 { margin: 0; padding-bottom: 10px; border-bottom: 1px solid #193044; color: #fff; font-size: 15px; font-weight: 700; letter-spacing: 1.6px; }
 .chart-key-data dl { display: grid; margin: 0; }
 .chart-key-metric { display: grid; gap: 5px; padding: 11px 0; border-bottom: 1px solid #193044; }
-.chart-key-metric dt { color: #89a8be; font-size: 9px; font-weight: 600; letter-spacing: .8px; text-transform: uppercase; }
-.chart-key-metric dd { margin: 0; color: #f4f8fb; font: 600 15px "DM Mono", Consolas, monospace; line-height: 1.35; overflow-wrap: anywhere; }
-.chart-key-caption { display: block; padding-top: 12px; color: #83a0b5; font: 10px "DM Mono", Consolas, monospace; }
+.chart-key-metric dt { color: #fff; font-size: 9px; font-weight: 600; letter-spacing: .8px; text-transform: uppercase; }
+.chart-key-metric dd { margin: 0; color: #fff; font: 600 15px "DM Mono", Consolas, monospace; line-height: 1.35; overflow-wrap: anywhere; }
+.chart-key-caption { display: block; padding-top: 12px; color: #fff; font: 10px "DM Mono", Consolas, monospace; }
 .empty-profile, .profile-loading { min-height: 184px; display: flex; align-items: center; justify-content: center; gap: 11px; border: 1px dashed #dce6e2; border-radius: 10px; background: #f9fbfa; color: #869590; font-size: 11px; }
 .empty-profile-mark { display: grid; width: 28px; height: 28px; place-items: center; border-radius: 50%; background: #e7f2ef; color: #368c7d; font-size: 16px; }
 .profile-loading { min-height: 56px; margin-bottom: 12px; border-style: solid; background: #fff; }
