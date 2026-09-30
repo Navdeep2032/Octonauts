@@ -1,4 +1,4 @@
-name = "oceanembed-data-proxy"
+name = "oceanembed"
 main = "worker/index.ts"
 compatibility_date = "2025-09-26"
 

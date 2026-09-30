@@ -22,6 +22,8 @@ The browser calls a Cloudflare Worker proxy, which invokes narrowly scoped Supab
 
    Also run [`supabase/migrations/20260929000000_oceanembed_export.sql`](./supabase/migrations/20260929000000_oceanembed_export.sql) to enable paginated CSV downloads of up to three months of gridded temperatures.
 
+   For existing deployments, run [`supabase/migrations/20260930120000_exclude_low_surface_temperatures.sql`](./supabase/migrations/20260930120000_exclude_low_surface_temperatures.sql) to exclude rows whose surface temperature is 1°C or lower from map, profile, and CSV responses.
+
 3. Copy `.dev.vars.example` to `.dev.vars` and set `SUPABASE_ANON_KEY` to the project's anon key. Do not use the service-role key. `.dev.vars` is ignored by Git.
 
 4. In one terminal, run the Worker:
@@ -44,7 +46,7 @@ The deployed Worker needs its own Supabase anon key secret. A local `.dev.vars` 
 npx wrangler secret put SUPABASE_ANON_KEY
 ```
 
-When prompted, paste the Supabase project's **anon/publishable key** (not its service-role/secret key). If the Worker is managed in the Cloudflare dashboard instead, open **Workers & Pages → oceanembed-data-proxy → Settings → Variables and Secrets**, add `SUPABASE_ANON_KEY` as an encrypted secret, and save.
+When prompted, paste the Supabase project's **anon/publishable key** (not its service-role/secret key). If the Worker is managed in the Cloudflare dashboard instead, open **Workers & Pages → oceanembed → Settings → Variables and Secrets**, add `SUPABASE_ANON_KEY` as an encrypted secret, and save.
 
 Then build and deploy:
 
@@ -63,7 +65,7 @@ For a separately hosted frontend, set `VITE_OCEAN_API_URL` to the deployed Worke
 
 ### Use a cleaner URL
 
-The `*.workers.dev` address is Cloudflare's default development hostname. To use a branded address such as `api.example.com`, you need to own a domain managed by Cloudflare. In **Workers & Pages → oceanembed-data-proxy → Settings → Domains & Routes**, choose **Add → Custom Domain** and enter a hostname on that domain. Cloudflare will provision HTTPS and route that hostname to the Worker. Use the custom hostname for a separately hosted frontend's `VITE_OCEAN_API_URL`; if the Worker serves the frontend too, its same-origin `/api/ocean-query` path still works.
+The Worker is named `oceanembed`, so its default Cloudflare hostname starts with `oceanembed.` and ends in your account-specific `workers.dev` subdomain (for example, `oceanembed.<your-account-subdomain>.workers.dev`). Cloudflare does not support choosing `oceanembed.worker.dev` as a `workers.dev` hostname. To use a branded address such as `oceanembed.example.com`, you need to own a domain managed by Cloudflare. In **Workers & Pages → oceanembed → Settings → Domains & Routes**, choose **Add → Custom Domain** and enter a hostname on that domain. Cloudflare will provision HTTPS and route that hostname to the Worker. Use the custom hostname for a separately hosted frontend's `VITE_OCEAN_API_URL`; if the Worker serves the frontend too, its same-origin `/api/ocean-query` path still works.
 
 Without a domain you control, you cannot choose a custom hostname for the Worker. The `workers.dev` address can still be used as-is.
 
